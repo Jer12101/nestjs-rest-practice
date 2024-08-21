@@ -1,10 +1,75 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ResultSetHeader} from 'mysql2/promise';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { DatabaseService } from 'src/database/database.provider';
+
 
 @Injectable()
 export class UsersService {
-    private users = [ // static data
+    constructor(private databaseService: DatabaseService) {}
+
+    async findAll(role?: 'SALES' | 'CLIENT' | 'ADMIN'){
+        let query = 'SELECT * FROM users'; // MySQL syntax
+        let values: any[] = [];
+
+        if (role) {
+            query += ' WHERE role = ?';
+            values.push(role);
+        }
+        // Perform the database query
+        const [users] = await this.databaseService.query(query, values); // 'users' is a local variable
+
+        if (!users) {
+            throw new NotFoundException('User Role Not Found');
+        }
+        return users;
+    }
+
+    async findOne(id: number) {
+        const query = 'SELECT * FROM users WHERE id = ?';
+        const [users] = await this.databaseService.query(query, [id]);
+        
+        let user = users[0];
+        if (!user) throw new NotFoundException('User Not Found');
+        return user;
+    }
+
+    async create(createUserDto: CreateUserDto) {
+        const query = 'INSERT INTO users (name, email, role) VALUES (?, ?, ?)';
+        // Specify that the result is of type ResultSetHeader
+        const [result] = await this.databaseService.query(query, [
+            createUserDto.name,
+            createUserDto.email,
+            createUserDto.role,
+        ]);
+
+        const resultSet = result as ResultSetHeader;
+
+        // Log the result (which is a ResultSetHeader)
+        console.log(result); // This will show the structure, including insertId, affectedRows, etc.
+        return { id: resultSet.insertId, ...createUserDto }; // Safely access insertId
+    }
+
+    async udpate(id: number, updateUserDto: UpdateUserDto) {
+        const query = 'UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?';
+        await this.databaseService.query(query, [
+            updateUserDto.name,
+            updateUserDto.email,
+            updateUserDto.role,
+            id,
+        ]);
+        return this.findOne(id);
+    }
+
+    async delete(id: number) {
+        const user = await this.findOne(id);
+        const query = 'DELETE FROM users WHERE id = ?';
+        await this.databaseService.query(query, [id]);
+        return user;
+    }
+
+    /*private users = [ // static data
         {
             "id": 1,
             "name": "Jim Halpert",
@@ -35,48 +100,5 @@ export class UsersService {
             "email": "jds@dunder-mifflin.com",
             "role": "CLIENT"
         },
-    ]
-
-    findAll(role?: 'SALES' | 'CLIENT' | 'ADMIN'){
-        if (role) {
-            const rolesArray = this.users.filter(user => user.role === role);
-            if (!rolesArray.length) throw new NotFoundException('User Role Not Found')
-            return rolesArray
-        }
-        
-        return this.users;
-    }
-
-    findOne(id: number) {
-        const user = this.users.find(user => user.id === id);
-
-        if (!user) throw new NotFoundException('User Not Found');
-        return user;
-    }
-
-    create(createUserDto: CreateUserDto) {
-        const usersByHighestID = [...this.users].sort((a, b) => b.id - a.id)
-        const newUser = {
-            id: usersByHighestID[0].id + 1, 
-            ...createUserDto
-        }
-        this.users.push(newUser)
-        return newUser
-    }
-
-    udpate(id: number, updateUserDto: UpdateUserDto) {
-        this.users = this.users.map(user => {
-            if(user.id === id) {
-                return {...user, ...updateUserDto}
-            }
-            return user
-        })
-        return this.findOne(id)
-    }
-
-    delete(id: number) {
-        const removedUser = this.findOne(id)
-        this.users = this.users.filter(user => user.id !== id)
-        return removedUser
-    }
+    ]*/
 }
