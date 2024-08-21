@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { ResultSetHeader} from 'mysql2/promise';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -10,20 +10,21 @@ export class UsersService {
     constructor(private databaseService: DatabaseService) {}
 
     async findAll(role?: 'SALES' | 'CLIENT' | 'ADMIN'){
-        let query = 'SELECT * FROM users'; // MySQL syntax
-        let values: any[] = [];
-
-        if (role) {
-            query += ' WHERE role = ?';
-            values.push(role);
+        try {
+            let query = 'SELECT * FROM users';
+            let values: any[] = [];
+    
+            if (role) {
+                query += ' WHERE role = ?';
+                values.push(role);
+            }
+    
+            const [users] = await this.databaseService.query(query, values);
+            return users;
+        } catch (error) {
+            console.error('Error occurred while fetching users:', error);
+            throw new InternalServerErrorException('An error occurred while fetching users');
         }
-        // Perform the database query
-        const [users] = await this.databaseService.query(query, values); // 'users' is a local variable
-
-        if (!users) {
-            throw new NotFoundException('User Role Not Found');
-        }
-        return users;
     }
 
     async findOne(id: number) {
