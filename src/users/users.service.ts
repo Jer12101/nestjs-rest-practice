@@ -11,6 +11,8 @@ export class UsersService {
 
     async findAll(role?: 'SALES' | 'CLIENT' | 'ADMIN'){
         try {
+            // check
+            if (!role) Error('xxxx')
             let query = 'SELECT * FROM users';
             let values: any[] = [];
     
@@ -38,11 +40,13 @@ export class UsersService {
 
     async create(createUserDto: CreateUserDto) {
         const query = 'INSERT INTO users (name, email, role) VALUES (?, ?, ?)';
+        const Param = []
+        
         // Specify that the result is of type ResultSetHeader
         const [result] = await this.databaseService.query(query, [
-            createUserDto.name,
-            createUserDto.email,
-            createUserDto.role,
+            createUserDto?.name,
+            createUserDto?.email,
+            createUserDto?.role,
         ]);
 
         const resultSet = result as ResultSetHeader;
