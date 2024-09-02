@@ -39,6 +39,12 @@ export class UsersService {
     }
 
     async create(createUserDto: CreateUserDto) {
+        // Check for identical email before creating the user
+        const existingUser = await this.findUserByEmail(createUserDto.email);
+
+        if (existingUser) {
+            throw new BadRequestException('Email is already in use. Please use a different email address.');
+        }
         // Check for default email before creating the user
         if (createUserDto.email === 'newuser@example.com') {
             throw new BadRequestException('Cannot save with default email. Please enter a valid email address.');
@@ -61,6 +67,12 @@ export class UsersService {
     }
 
     async udpate(id: number, updateUserDto: UpdateUserDto) {
+        const existingUser = await this.findUserByEmail(updateUserDto.email);
+        if (existingUser && existingUser.id !== id) {
+            throw new BadRequestException('Email is already in use. Please use a different email address.');
+        }
+
+
         // Check for default email before updating the user
         if (updateUserDto.email === 'newuser@example.com') {
             throw new BadRequestException('Cannot save with default email. Please enter a valid email address.');
@@ -80,6 +92,13 @@ export class UsersService {
         const query = 'DELETE FROM users WHERE id = ?';
         await this.databaseService.query(query, [id]);
         return user;
+    }
+
+    // helper function to find a user by email
+    private async findUserByEmail(email: string) {
+        const query = 'SELECT * FROM users WHERE EMAIL = ?';
+        const [users] = await this.databaseService.query(query, [email]);
+        return users[0]; // returns undefined if no user is found
     }
 
     /*private users = [ // static data
