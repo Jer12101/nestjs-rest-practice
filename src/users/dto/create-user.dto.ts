@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsString } from "class-validator";
+import { IsEmail, IsEnum, IsNotEmpty, IsString, Length, Matches } from "class-validator";
 
 export class CreateUserDto { // input validation types, or Data Transfer Objects
     // no id: create the id after we receive the data
@@ -7,9 +7,12 @@ export class CreateUserDto { // input validation types, or Data Transfer Objects
 
     @IsString()
     @IsNotEmpty()
+    @Length(1, 15)
     name: string;
 
+    @Matches(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { message: 'Invalid email format' })
     @IsEmail()
+    @Length(1, 25)
     email: string;
 
     @IsEnum(['SALES', 'CLIENT', 'ADMIN'], {

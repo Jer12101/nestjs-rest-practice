@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { ResultSetHeader} from 'mysql2/promise';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -39,6 +39,10 @@ export class UsersService {
     }
 
     async create(createUserDto: CreateUserDto) {
+        // Check for default email before creating the user
+        if (createUserDto.email === 'newuser@example.com') {
+            throw new BadRequestException('Cannot save with default email. Please enter a valid email address.');
+        }
         const query = 'INSERT INTO users (name, email, role) VALUES (?, ?, ?)';
         const Param = []
         
@@ -57,6 +61,10 @@ export class UsersService {
     }
 
     async udpate(id: number, updateUserDto: UpdateUserDto) {
+        // Check for default email before updating the user
+        if (updateUserDto.email === 'newuser@example.com') {
+            throw new BadRequestException('Cannot save with default email. Please enter a valid email address.');
+        }
         const query = 'UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?';
         await this.databaseService.query(query, [
             updateUserDto.name,
