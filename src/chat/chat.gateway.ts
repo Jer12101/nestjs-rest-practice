@@ -27,9 +27,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
     this.logger.log(`Socket disconnected: ${socket.id}`);
   }
 
-  @SubscribeMessage('chat') // subscribe to chat event mesages
+  @SubscribeMessage('message') // subscribe to chat event mesages
+  // front end and backend should subscribe to the same 'message' and not one to 'message' and one to 'chat'
   handleMessage(@MessageBody() message: AddMessageDto, @ConnectedSocket() client: Socket): void {
-    console.log(`Received message from ${message.author}: ${message.body}`);
+    this.logger.log(`Received message from ${message.author}: ${message.body}`);
     this.server.emit('message', message);
   }
 
@@ -39,7 +40,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
       author: 'System',
       body: `${username} has joined the chat`
     };
-    console.log(`Join message: ${joinMessage.body}`);
+    this.logger.log(`Join message: ${joinMessage.body}`);
     client.emit('message', joinMessage);
     client.broadcast.emit('message', joinMessage);
   }
