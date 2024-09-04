@@ -30,7 +30,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
   @SubscribeMessage('message') // subscribe to chat event mesages
   // front end and backend should subscribe to the same 'message' and not one to 'message' and one to 'chat'
   handleMessage(@MessageBody() message: AddMessageDto, @ConnectedSocket() client: Socket): void {
-    this.logger.log(`Received message from ${message.author}: ${message.body}`);
+    this.logger.log(`Received message from ${message.author}:${" "}${message.body}`);
     this.server.emit('message', message);
   }
 
