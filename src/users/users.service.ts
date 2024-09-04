@@ -45,10 +45,7 @@ export class UsersService {
         if (existingUser) {
             throw new BadRequestException('Email is already in use. Please use a different email address.');
         }
-        // Check for default email before creating the user
-        if (createUserDto.email === 'newuser@example.com') {
-            throw new BadRequestException('Cannot save with default email. Please enter a valid email address.');
-        }
+        
         const query = 'INSERT INTO users (name, email, role) VALUES (?, ?, ?)';
         const Param = []
         
