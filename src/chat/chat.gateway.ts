@@ -21,7 +21,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
 
   private logger = new Logger('ChatGateway');
   // Map to keep track of connected clients and their usernames
-  private clients: Map<string, string> = new Map(); // socket.id -> username
+  private clients: Map<string, { username: string; roomId: string }> = new Map(); // socket.id -> username
 
   handleConnection(socket: Socket) {
     this.logger.log(`Socket connect: ${socket.id}`);
@@ -29,14 +29,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
 
   handleDisconnect(socket: Socket) {
     this.logger.log(`Disconnect event triggered for socket: ${socket.id}`);
-    const username = this.clients.get(socket.id); // Retrieve username associated with this socket
-    if (username) {
+    const clientInfo = this.clients.get(socket.id); // Retrieve username associated with this socket
+    if (clientInfo) {
+      const { username, roomId } = clientInfo;
       const leaveMessage: AddMessageDto = {
           author: 'System',
           body: `${username} has left the chat`,
       };
       this.logger.log(`Left message: ${leaveMessage.body}`);
-      this.server.emit('message', leaveMessage); // Broadcast to all clients
+      this.server.to(roomId).emit('message', leaveMessage); // Broadcast to all clients
       this.clients.delete(socket.id);
     }
     else {
@@ -46,20 +47,37 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
 
   @SubscribeMessage('message') // subscribe to chat event mesages
   // front end and backend should subscribe to the same 'message' and not one to 'message' and one to 'chat'
-  handleMessage(@MessageBody() message: AddMessageDto, @ConnectedSocket() client: Socket): void {
-    this.logger.log(`Received message from ${message.author}:${" "}${message.body}`);
-    this.server.emit('message', message);
+  handleMessage(
+    @MessageBody() data: {author: string; body: string; roomId: string}, 
+    @ConnectedSocket() client: Socket): void {
+      // Log the received data for debugging
+      this.logger.log('Received data:', JSON.stringify(data));
+
+      // Check if data is correctly received
+      if (!data || !data.author || !data.body || !data.roomId) {
+        this.logger.error('Received data is missing required fields:', data);
+        return; // Exit early if data is malformed
+      }
+      const {author, body, roomId} = data;
+      const message: AddMessageDto = {
+        author,
+        body,
+      }
+      this.logger.log(`Received message from ${author} in room ${roomId}:${" "}${message.body}`);
+      this.server.to(roomId).emit('message', message);
   }
 
   @SubscribeMessage('join')
-  handleJoin(@MessageBody() username: string, @ConnectedSocket() client: Socket): void {
-    this.clients.set(client.id, username); // Correctly associate the socket ID with the username
+  handleJoin(@MessageBody() data: {username: string, roomId: string}, @ConnectedSocket() client: Socket): void {
+    const {username, roomId} = data;
+    this.clients.set(client.id, {username, roomId}); // Correctly associate the socket ID with the username
+    client.join(roomId); 
     const joinMessage: AddMessageDto = {
       author: 'System',
-      body: `${username} has joined the chat`
+      body: `${username} has joined room ${roomId}`,
     };
     this.logger.log(`Join message: ${joinMessage.body}`);
+    client.to(roomId).emit('message', joinMessage);
     client.emit('message', joinMessage);
-    client.broadcast.emit('message', joinMessage);
   }
 }
