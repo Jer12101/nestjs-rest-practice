@@ -8,6 +8,8 @@ import {SubscribeMessage,
 
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { createAdapter} from 'socketio-mq';
+import { createClient } from 'redis';
 
 import { AddMessageDto } from './dto/add-message.dto';
 
@@ -36,9 +38,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
       this.logger.log(`Left message: ${leaveMessage.body}`);
       this.server.emit('message', leaveMessage); // Broadcast to all clients
       this.clients.delete(socket.id);
-  } else {
-      this.logger.log(`No username found for disconnected socket: ${socket.id}`);
-  }
+    }
+    else {
+        this.logger.log(`No username found for disconnected socket: ${socket.id}`);
+    }
   }
 
   @SubscribeMessage('message') // subscribe to chat event mesages
