@@ -83,4 +83,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
       client.to(roomId).emit('message', joinMessage);
       client.emit('message', joinMessage);
     }
+
+  // New method to broadcast messages received from RabbitMQ
+  broadcastMessageToClients(message: AddMessageDto) {
+    this.server.emit('message', message); // Broadcast to all clients
+    this.logger.log(`Broadcasting message to clients: ${message.body}`);
+  }
 }

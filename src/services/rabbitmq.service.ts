@@ -1,5 +1,9 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import * as amqp from 'amqplib';
+import { MessageDBService } from './messageDB.service';
+import { ChatGateway } from 'src/chat/chat.gateway';
+import { AddMessageDto } from '../chat/dto/add-message.dto'; // Import AddMessageDto
+
 
 @Injectable()
 export class RabbitMQService
@@ -9,6 +13,11 @@ implements OnModuleInit {
     private channel: amqp.Channel;
 
     private readonly QUEUE_NAME = 'messages_queue';
+    
+    constructor(
+        private readonly messageDBService: MessageDBService,
+        private readonly chatGateway: ChatGateway
+    ) {}
 
     async onModuleInit() {
         await this.connectToRabbitMQ(); // will be declared later
@@ -44,20 +53,34 @@ implements OnModuleInit {
 
     async consumeMessages() {
         try {
-            // Consume messages from the RabbitMQ queue
             await this.channel.consume(this.QUEUE_NAME, async (msg) => {
                 if (msg != null) {
-                    const message = msg.content.toString();
-                    this.logger.log(`Received message: ${message}`);
-                    // Offload the message to the database
-                    await this.offloadMessageToDatabase(message);
-                    this.channel.ack(msg);
-                }
-                
-            });
-        }
+                    const messageContent = msg.content.toString();
+                    this.logger.log(`Received message: ${messageContent}`);
 
-        catch (error) {
+                    // Parse the message content into AddMessageDto
+                    let message: AddMessageDto;
+                    try {
+                        message = JSON.parse(messageContent) as AddMessageDto;
+                        
+                        // Validate the message structure
+                        if (!message.author || !message.body) {
+                            throw new Error('Invalid message format');
+                        }
+                    } catch (error) {
+                        this.logger.error('Failed to parse message content into AddMessageDto', error);
+                        this.channel.ack(msg);
+                        return;
+                    }
+
+                    await this.messageDBService.insertMessage(message.body); // Offload to database
+                    this.channel.ack(msg);
+
+                    // Emit to WebSocket clients through ChatGateway
+                    this.chatGateway.broadcastMessageToClients(message);
+                }
+            });
+        } catch (error) {
             this.logger.error('Failed to consume messages', error);
         }
     }
@@ -66,7 +89,17 @@ implements OnModuleInit {
         // Implement a logic to offload the message to a database
         this.logger.log(`Offloading message to database: ${message}`);
         // Example: use a database service to insert the message
-        // await this.databaseService.insertMessage(message);
+        await this.messageDBService.insertMessage(message); // Use MessageDBService to save the message
+    }
+
+    private async closeRabbitMQConnection() {
+        try {
+            if (this.channel) await this.channel.close();
+            if (this.connection) await this.connection.close();
+            this.logger.log('RabbitMQ connection closed');
+        } catch (error) {
+            this.logger.error('Error closing RabbitMQ connection', error);
+        }
     }
 
 
