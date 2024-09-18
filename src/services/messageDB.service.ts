@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Message } from 'amqplib';
 import { createPool, Pool } from 'mysql2/promise';
+
 
 @Injectable()
 export class MessageDBService {
@@ -19,7 +21,7 @@ export class MessageDBService {
     }
 
     async insertMessage(content: string): Promise<void> {
-        const query = 'INSERT INTO messages (content) VALUES (?)';
+        const query = 'INSERT INTO messages (body) VALUES (?)';
         try {
             const [result] = await this.pool.query(query, [content]);
             this.logger.log(`Message saved to database with result: ${JSON.stringify(result)}`);
