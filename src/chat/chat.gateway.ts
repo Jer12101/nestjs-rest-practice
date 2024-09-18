@@ -5,7 +5,7 @@ import {SubscribeMessage,
         ConnectedSocket,
         OnGatewayConnection,
         OnGatewayDisconnect,} from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Inject, forwardRef, Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { AddMessageDto } from './dto/add-message.dto';
 import { RabbitMQService } from '../services/rabbitmq.service';
@@ -20,7 +20,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
   // Map to keep track of connected clients and their usernames
   private clients: Map<string, { username: string; roomId: string }> = new Map(); // socket.id -> username
   
-  constructor(private readonly rabbitMQService: RabbitMQService) {};
+  constructor(@Inject(forwardRef(()=> RabbitMQService)) private readonly rabbitMQService: RabbitMQService) {};
 
   handleConnection(socket: Socket) {
     this.logger.log(`Socket connect: ${socket.id}`);
@@ -63,7 +63,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
         body,
       }
       // queue the message in RabbitMQ instead of broadcasting immediately
-      await this.rabbitMQService.publishMessage(JSON.stringify(message));
+      await this.rabbitMQService.publishMessage(message);
       this.logger.log(`Received message from ${author} in room ${roomId}:${" "}${message.body}`);
       //this.server.to(roomId).emit('message', message);
   }

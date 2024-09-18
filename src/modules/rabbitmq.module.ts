@@ -1,8 +1,11 @@
-import { Module } from '@nestjs/common';
-import { RabbitMQService } from '../services/rabbitmq.service'; // Ensure correct path to your service
+import { Module, forwardRef } from '@nestjs/common';
+import { RabbitMQService } from '../services/rabbitmq.service';
+import { MessageDBService } from '../services/messageDB.service'; // Correct path if needed
+import { GatewayModule } from './gateway.module'; // Import the GatewayModule
 
 @Module({
-    providers: [RabbitMQService],
-    exports: [RabbitMQService], // Export to make it available in other modules
+    imports: [forwardRef(() => GatewayModule)], // Forward reference to GatewayModule to handle circular dependency
+    providers: [RabbitMQService, MessageDBService],
+    exports: [RabbitMQService], // Export RabbitMQService for use in other modules
 })
 export class RabbitMQModule {}

@@ -1,13 +1,13 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger, forwardRef, Inject } from '@nestjs/common';
 import * as amqp from 'amqplib';
 import { MessageDBService } from './messageDB.service';
-import { ChatGateway } from 'src/chat/chat.gateway';
+import { ChatGateway } from '../chat/chat.gateway';
 import { AddMessageDto } from '../chat/dto/add-message.dto'; // Import AddMessageDto
 
 
 @Injectable()
 export class RabbitMQService
-implements OnModuleInit {
+implements OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(RabbitMQService.name);
     private connection: amqp.Connection;
     private channel: amqp.Channel;
@@ -16,12 +16,16 @@ implements OnModuleInit {
     
     constructor(
         private readonly messageDBService: MessageDBService,
-        private readonly chatGateway: ChatGateway
+        @Inject(forwardRef(()=> ChatGateway))private readonly chatGateway: ChatGateway,
     ) {}
 
     async onModuleInit() {
         await this.connectToRabbitMQ(); // will be declared later
         await this.consumeMessages(); // start consuming messages upon initialization
+    }
+
+    async onModuleDestroy() {
+        await this.closeRabbitMQConnection();
     }
 
     private async connectToRabbitMQ() {
@@ -39,12 +43,13 @@ implements OnModuleInit {
         
     }
 
-    async publishMessage(message: string) {
+    async publishMessage(message: AddMessageDto) {
         try {
+            const messageBuffer = Buffer.from(JSON.stringify(message));
             // Send message to the RabbitMQ queue
-            this.channel.sendToQueue(this.QUEUE_NAME, Buffer.from(message), {persistent: true,});
+            this.channel.sendToQueue(this.QUEUE_NAME, messageBuffer, {persistent: true,});
             // Ensures that the messages survive RabbitMQ restarts with persistent: true
-            this.logger.log(`Message sent to queue: ${message}`);
+            this.logger.log(`Message sent to queue: ${message.author}-${message.body}`);
         }
         catch (error) {
             this.logger.error('Failed to publish message', error);
@@ -84,14 +89,7 @@ implements OnModuleInit {
             this.logger.error('Failed to consume messages', error);
         }
     }
-
-    private async offloadMessageToDatabase(message: string) {
-        // Implement a logic to offload the message to a database
-        this.logger.log(`Offloading message to database: ${message}`);
-        // Example: use a database service to insert the message
-        await this.messageDBService.insertMessage(message); // Use MessageDBService to save the message
-    }
-
+    
     private async closeRabbitMQConnection() {
         try {
             if (this.channel) await this.channel.close();
