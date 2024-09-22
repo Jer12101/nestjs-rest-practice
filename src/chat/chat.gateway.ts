@@ -34,6 +34,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
       const leaveMessage: AddMessageDto = {
           author: 'System',
           body: `${username} has left the chat`,
+          roomId,
       };
       this.logger.log(`Left message: ${leaveMessage.body}`);
       this.server.to(roomId).emit('message', leaveMessage); // Broadcast to all clients
@@ -47,25 +48,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
   @SubscribeMessage('message') // subscribe to chat event mesages
   // !! front end and back end should subscribe to the same 'message' and not one to 'message' and one to 'chat'
   async handleMessage(
-    @MessageBody() data: {author: string; body: string; roomId: string}, 
+    @MessageBody() data: {username: string; body: string; roomId: string}, 
     @ConnectedSocket() client: Socket): Promise<void> {
       // Log the received data for debugging
       this.logger.log('Received data:', JSON.stringify(data));
 
       // Check if data is correctly received
-      if (!data || !data.author || !data.body || !data.roomId) {
+      if (!data || !data.username || !data.body || !data.roomId) {
         this.logger.error('Received data is missing required fields:', data);
         return; // Exit early if data is malformed
       }
-      const {author, body, roomId} = data;
+      const {username, body, roomId} = data;
       const message: AddMessageDto = {
-        author,
+        author: username,
         body,
+        roomId
       }
+      // Emit the message to all clients immediately
+      this.server.to(roomId).emit('message', message);
       // queue the message in RabbitMQ instead of broadcasting immediately
       await this.rabbitMQService.publishMessage(message);
-      this.logger.log(`Received message from ${author} in room ${roomId}:${" "}${message.body}`);
-      //this.server.to(roomId).emit('message', message);
   }
 
   @SubscribeMessage('join')
@@ -78,15 +80,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
       const joinMessage: AddMessageDto = {
         author: 'System',
         body: `${username} has joined room ${roomId}`,
+        roomId,
       };
       this.logger.log(`Join message: ${joinMessage.body}`);
       client.to(roomId).emit('message', joinMessage);
       client.emit('message', joinMessage);
     }
-
-  // New method to broadcast messages received from RabbitMQ
-  broadcastMessageToClients(message: AddMessageDto) {
-    this.server.emit('message', message); // Broadcast to all clients
-    this.logger.log(`Broadcasting message to clients: ${message.body}`);
-  }
 }

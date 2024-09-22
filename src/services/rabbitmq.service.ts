@@ -78,11 +78,15 @@ implements OnModuleInit, OnModuleDestroy {
                         return;
                     }
 
-                    await this.messageDBService.insertMessage(message.body); // Offload to database
-                    this.channel.ack(msg);
+                    await this.messageDBService.insertMessage(
+                        message.author,          // sender_id (author of the message)
+                        message.roomId || null,  // room_id (null for direct messages)
+                        message.body             // body (the message content)
+                    ); // Offload to database
 
-                    // Emit to WebSocket clients through ChatGateway
-                    this.chatGateway.broadcastMessageToClients(message);
+                    // Emit the message to WebSocket clients after it's been processed
+                    this.chatGateway.server.to(message.roomId).emit('message', message);
+                    this.channel.ack(msg);
                 }
             });
         } catch (error) {

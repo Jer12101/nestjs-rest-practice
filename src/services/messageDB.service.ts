@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Message } from 'amqplib';
-import { createPool, Pool } from 'mysql2/promise';
+import { createPool, Pool, RowDataPacket } from 'mysql2/promise';
 
 
 @Injectable()
@@ -20,13 +19,37 @@ export class MessageDBService {
         });
     }
 
-    async insertMessage(content: string): Promise<void> {
-        const query = 'INSERT INTO messages (body) VALUES (?)';
+    async insertMessage(
+        senderId: string, 
+        roomId: string | null, 
+        body: string
+    ): Promise<void> {
+        const query = `
+            INSERT INTO messages (sender_id, room_id, body, created_at)
+            VALUES (?, ?, ?, NOW());
+        `;
         try {
-            const [result] = await this.pool.query(query, [content]);
+            const [result] = await this.pool.query(query, [senderId, roomId, body]);
             this.logger.log(`Message saved to database with result: ${JSON.stringify(result)}`);
         } catch (error) {
             this.logger.error('Error saving message to database', error);
+        }
+    }
+    
+    async getMessagesByRoom(roomId: string): Promise<RowDataPacket[]> {
+        const query = `
+            SELECT messages.body, messages.sender_id AS username, messages.created_at
+            FROM messages
+            WHERE messages.room_id = ?
+            ORDER BY messages.created_at ASC;
+        `;
+
+        try {
+            const [rows] = await this.pool.query<RowDataPacket[]>(query, [roomId]);
+            return rows;
+        } catch (error) {
+            this.logger.error('Error fetching messages by room', error);
+            throw error;
         }
     }
 
