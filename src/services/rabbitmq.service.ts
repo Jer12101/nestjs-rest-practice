@@ -85,7 +85,8 @@ implements OnModuleInit, OnModuleDestroy {
                     ); // Offload to database
 
                     // Emit the message to WebSocket clients after it's been processed
-                    this.chatGateway.server.to(message.roomId).emit('message', message);
+                    this.logger.log(`The message: ${message.body} is sent from RabbitMQ by ${message.author}` );
+                    this.chatGateway.server.to(message.roomId).emit('message', message); // front end consumes the message from the queue
                     this.channel.ack(msg);
                 }
             });

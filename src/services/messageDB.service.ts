@@ -38,7 +38,7 @@ export class MessageDBService {
     
     async getMessagesByRoom(roomId: string): Promise<RowDataPacket[]> {
         const query = `
-            SELECT messages.body, messages.sender_id AS username, messages.created_at
+            SELECT messages.body, messages.sender_id AS author, messages.created_at
             FROM messages
             WHERE messages.room_id = ?
             ORDER BY messages.created_at ASC;

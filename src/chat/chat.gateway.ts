@@ -48,24 +48,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect{
   @SubscribeMessage('message') // subscribe to chat event mesages
   // !! front end and back end should subscribe to the same 'message' and not one to 'message' and one to 'chat'
   async handleMessage(
-    @MessageBody() data: {username: string; body: string; roomId: string}, 
+    @MessageBody() data: {author: string; body: string; roomId: string}, 
     @ConnectedSocket() client: Socket): Promise<void> {
       // Log the received data for debugging
       this.logger.log('Received data:', JSON.stringify(data));
 
       // Check if data is correctly received
-      if (!data || !data.username || !data.body || !data.roomId) {
+      if (!data || !data.author || !data.body || !data.roomId) {
         this.logger.error('Received data is missing required fields:', data);
         return; // Exit early if data is malformed
       }
-      const {username, body, roomId} = data;
+      const {author, body, roomId} = data;
       const message: AddMessageDto = {
-        author: username,
+        author,
         body,
         roomId
       }
       // Emit the message to all clients immediately
-      this.server.to(roomId).emit('message', message);
+      this.logger.log(`Broadcasting message to room ${roomId}: ${JSON.stringify(message)}`);
+      // this.server.to(roomId).emit('message', message);
       // queue the message in RabbitMQ instead of broadcasting immediately
       await this.rabbitMQService.publishMessage(message);
   }
